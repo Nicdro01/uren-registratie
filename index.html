@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uren Registratie</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#4f6ef7" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Uren" />
+  <link rel="apple-touch-icon" href="icon-192.svg" />
+  <link rel="icon" type="image/svg+xml" href="icon-192.svg" />
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f2f7; --card: #ffffff; --border: #e0e4ed;
+      --primary: #4f6ef7; --primary-dark: #3a53d4; --primary-light: #eef1ff;
+      --text: #1c1f2e; --muted: #7c829a;
+      --accent: #f7a84f; --accent-light: #fff6eb;
+      --work: #eef1ff; --work-border: #4f6ef7;
+      --vacation: #e8faf2; --vacation-border: #2dcc7e;
+      --sick: #fdf0ef; --sick-border: #e86050;
+      --weekend: #f5f6fa; --radius: 12px;
+      --shadow-sm: 0 1px 3px rgba(30,40,80,0.06);
+      --shadow-md: 0 4px 16px rgba(30,40,80,0.08);
+      --shadow-lg: 0 8px 32px rgba(30,40,80,0.12);
+    }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* === LOGIN === */
+    .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; background: linear-gradient(135deg, #4f6ef7 0%, #7c5ce0 50%, #f7a84f 100%); }
+    .login-card { background: var(--card); border: none; border-radius: 20px; padding: 44px 38px; width: 100%; max-width: 400px; box-shadow: var(--shadow-lg); }
+    .login-card h1 { font-size: 1.5rem; text-align: center; margin-bottom: 4px; color: var(--primary); }
+    .login-card .subtitle { text-align: center; color: var(--muted); font-size: 0.82rem; margin-bottom: 28px; }
+    .login-field { margin-bottom: 16px; }
+    .login-field label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .login-field input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fafbff; }
+    .login-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); }
+    .login-check { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+    .login-check input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+    .login-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--primary), #6c5ce7); color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; box-shadow: 0 4px 14px rgba(79,110,247,0.3); }
+    .login-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,110,247,0.4); }
+    .login-btn:active { transform: translateY(0); }
+    .login-btn.secondary { background: transparent; color: var(--primary); border: 1.5px solid var(--border); margin-top: 10px; box-shadow: none; }
+    .login-btn.secondary:hover { background: var(--primary-light); border-color: var(--primary); transform: none; box-shadow: none; }
+    .login-error { color: var(--sick-border); font-size: 0.82rem; margin-bottom: 14px; display: none; text-align: center; font-weight: 500; }
+
+    /* === APP === */
+    .app-screen { display: none; padding: 28px 20px; }
+    .app-header { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px; position: relative; max-width: 840px; margin-left: auto; margin-right: auto; }
+    .app-header h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), #6c5ce7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .user-badge { position: absolute; right: 0; display: flex; align-items: center; gap: 8px; }
+    .user-badge span { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+    .btn-logout { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 0.75rem; color: var(--muted); cursor: pointer; font-weight: 600; transition: all 0.15s; }
+    .btn-logout:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+    .subtitle { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 26px; }
+
+    /* Nav */
+    .nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
+    .nav button { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; width: 38px; height: 38px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; box-shadow: var(--shadow-sm); }
+    .nav button:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+    .nav .month-label { font-size: 1.2rem; font-weight: 700; min-width: 200px; text-align: center; }
+
+    /* Summary */
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 26px; max-width: 840px; margin-left: auto; margin-right: auto; }
+    .summary-card { background: var(--card); border: none; border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow-sm); transition: transform 0.15s, box-shadow 0.15s; }
+    .summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .summary-card .label { font-size: 0.7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .summary-card .value { font-size: 1.7rem; font-weight: 800; }
+    .summary-card.work { border-left: 4px solid var(--primary); }
+    .summary-card.work .value { color: var(--primary); }
+    .summary-card.vacation { border-left: 4px solid var(--vacation-border); }
+    .summary-card.vacation .value { color: var(--vacation-border); }
+    .summary-card.sick { border-left: 4px solid var(--sick-border); }
+    .summary-card.sick .value { color: var(--sick-border); }
+    .summary-card .sub { font-size: 0.73rem; color: var(--muted); }
+
+    /* Calendar */
+    .calendar-wrap { max-width: 840px; margin: 0 auto; background: var(--card); border: none; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-md); }
+    .calendar-header { display: grid; grid-template-columns: 32px repeat(7, 1fr); background: linear-gradient(135deg, var(--primary), #6c5ce7); }
+    .calendar-header .day-name { text-align: center; padding: 12px 4px; font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.08em; }
+    .calendar-header .week-label { font-size: 0.6rem; color: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; }
+    .calendar-grid { display: grid; grid-template-columns: 32px repeat(7, 1fr); }
+    .day-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 88px; padding: 6px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; transition: background 0.12s; }
+    .day-cell:hover { background: var(--primary-light); }
+    .day-cell:nth-child(7n) { border-right: none; }
+    .day-cell.empty { background: #f8f9fc; cursor: default; }
+    .day-cell.empty:hover { background: #f8f9fc; }
+    .day-cell.weekend { background: var(--weekend); }
+    .day-cell.weekend:hover { background: #eceef5; }
+    .day-cell.today .day-num { background: var(--primary); color: #fff; border-radius: 50%; }
+    .day-cell.has-work { border-left: 3px solid var(--work-border); }
+    .day-cell.has-vac { border-left: 3px solid var(--vacation-border); }
+    .day-cell.has-sick { border-left: 3px solid var(--sick-border); }
+    .day-cell.has-mixed { border-left: 3px solid #8b5cf6; }
+    .day-num { font-size: 0.78rem; font-weight: 700; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+
+    .entry-pill { font-size: 0.6rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .pill-work { background: var(--work); color: var(--primary-dark); }
+    .pill-vac { background: var(--vacation); color: #1a8c56; }
+    .pill-sick { background: var(--sick); color: #b33a2a; }
+    .day-more { font-size: 0.6rem; color: var(--muted); font-weight: 500; }
+
+    /* Client breakdown */
+    .client-breakdown { max-width: 840px; margin: 16px auto 0; background: var(--card); border: none; border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+    .client-breakdown h3 { font-size: 0.78rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .client-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .client-row:last-child { border-bottom: none; }
+    .client-name { font-weight: 600; font-size: 0.9rem; }
+    .client-hours { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+    .client-days { font-size: 0.75rem; color: var(--muted); margin-left: 8px; }
+
+    /* Action bar */
+    .action-bar { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 24px auto 0; max-width: 840px; }
+    .btn-action { display: inline-flex; align-items: center; gap: 8px; padding: 11px 28px; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; }
+    .btn-export { background: linear-gradient(135deg, #2dcc7e, #059669); color: #fff; box-shadow: 0 4px 14px rgba(5,150,105,0.25); }
+    .btn-export:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(5,150,105,0.35); }
+    .btn-year { background: linear-gradient(135deg, var(--primary), #6c5ce7); color: #fff; box-shadow: 0 4px 14px rgba(79,110,247,0.25); }
+    .btn-year:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,110,247,0.35); }
+
+    /* Year overview */
+    .year-overview { display: none; max-width: 840px; margin: 16px auto 0; background: var(--card); border: none; border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-md); }
+    .year-overview.open { display: block; }
+    .year-overview h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; text-align: center; color: var(--primary); }
+    .year-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .year-table th { text-align: left; padding: 10px 12px; font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary); }
+    .year-table th:not(:first-child) { text-align: right; }
+    .year-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .year-table td:not(:first-child) { text-align: right; }
+    .year-table tr:last-child td { border-bottom: none; }
+    .year-table tr:hover td { background: var(--primary-light); }
+    .year-table .row-total td { font-weight: 700; border-top: 2px solid var(--primary); border-bottom: none; background: var(--primary-light); }
+    .year-table .val-hours { color: var(--primary); font-weight: 700; }
+    .year-table .val-vac { color: var(--vacation-border); font-weight: 700; }
+    .year-table .val-sick { color: var(--sick-border); font-weight: 700; }
+
+    /* Legend */
+    .legend { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin-top: 20px; max-width: 840px; margin-left: auto; margin-right: auto; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 4px; }
+    .legend-dot.work { background: var(--work); border: 2px solid var(--work-border); }
+    .legend-dot.vacation { background: var(--vacation); border: 2px solid var(--vacation-border); }
+    .legend-dot.sick { background: var(--sick); border: 2px solid var(--sick-border); }
+    .legend-dot.weekend { background: var(--weekend); border: 2px solid var(--border); }
+
+    /* === MODALS === */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(20,24,40,0.5); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: var(--card); border-radius: 16px; padding: 28px; width: 100%; max-width: 440px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+    .modal h2 { font-size: 1.15rem; margin-bottom: 18px; font-weight: 700; }
+    .modal label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
+    .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+    .modal-btns button { padding: 10px 22px; border-radius: 10px; border: none; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-cancel { background: var(--bg); color: var(--text); }
+    .btn-cancel:hover { background: var(--border); }
+    .btn-save { background: linear-gradient(135deg, var(--primary), #6c5ce7); color: #fff; box-shadow: 0 3px 10px rgba(79,110,247,0.25); }
+    .btn-save:hover { box-shadow: 0 5px 16px rgba(79,110,247,0.35); transform: translateY(-1px); }
+    .btn-danger { background: #fde2df; color: #b33a2a; margin-right: auto; }
+    .btn-danger:hover { background: #fbd0cc; }
+
+    .modal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .modal-field { display: flex; flex-direction: column; gap: 4px; }
+    .modal-field.full { grid-column: 1 / -1; }
+    .modal input[type=text], .modal input[type=time], .modal input[type=number], .modal select {
+      width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 1rem; font-weight: 600; color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fafbff;
+    }
+    .modal input:focus, .modal select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+    .calc-result { background: var(--primary-light); border: 1.5px solid var(--work-border); border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .calc-result .calc-label { font-size: 0.82rem; color: var(--muted); font-weight: 500; }
+    .calc-result .calc-value { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
+    .calc-result.invalid { background: #fdf0ef; border-color: var(--sick-border); }
+    .calc-result.invalid .calc-value { color: var(--sick-border); font-size: 0.85rem; }
+
+    /* Day modal entries list */
+    .day-entries { margin-bottom: 14px; }
+    .day-entry-card { background: #fafbff; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
+    .day-entry-card:hover { border-color: var(--primary); background: var(--primary-light); transform: translateX(2px); }
+    .entry-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; }
+    .icon-work { background: var(--work); color: var(--primary-dark); }
+    .icon-vac { background: var(--vacation); color: #1a8c56; }
+    .icon-sick { background: var(--sick); color: #b33a2a; }
+    .entry-info { flex: 1; min-width: 0; }
+    .entry-info .entry-title { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry-info .entry-sub { font-size: 0.72rem; color: var(--muted); }
+    .entry-hours { font-size: 1rem; font-weight: 800; color: var(--primary); flex-shrink: 0; }
+    .entry-hours.vac { color: var(--vacation-border); }
+    .entry-hours.sick { color: var(--sick-border); }
+    .btn-entry-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1.1rem; padding: 2px 4px; flex-shrink: 0; transition: color 0.15s; }
+    .btn-entry-del:hover { color: var(--sick-border); }
+
+    .day-add-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .day-add-btns button { flex: 1; min-width: 80px; padding: 10px 10px; border-radius: 10px; border: 1.5px dashed var(--border); background: var(--card); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .day-add-btns button:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+    .day-no-entries { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 18px 0; }
+
+    /* PDF */
+    .pdf-modal-select { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; font-weight: 600; color: var(--text); background: #fafbff; margin-bottom: 14px; outline: none; cursor: pointer; }
+    .pdf-modal-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+    .pdf-field-group { margin-bottom: 14px; }
+    .pdf-field-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .pdf-field-group input[type=text] { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.95rem; color: var(--text); outline: none; background: #fafbff; }
+    .pdf-field-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+    .pdf-preview { background: var(--primary-light); border: 1.5px solid rgba(79,110,247,0.15); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+    .pdf-preview strong { color: var(--text); }
+
+    /* PDF achtergrond upload */
+    .bg-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .bg-upload-area:hover { border-color: var(--primary); background: var(--primary-light); }
+    .bg-upload-area.has-bg { border-style: solid; border-color: var(--primary); padding: 6px; background: var(--primary-light); }
+    .bg-upload-area img { max-width: 100%; max-height: 60px; border-radius: 6px; display: block; margin: 0 auto; opacity: 0.7; }
+    .bg-upload-area .bg-placeholder { color: var(--muted); font-size: 0.75rem; padding: 6px 0; }
+    .bg-upload-area .bg-placeholder span { font-size: 1rem; display: block; margin-bottom: 2px; }
+    .bg-remove { position: absolute; top: 4px; right: 8px; background: #fde2df; border: none; color: #b33a2a; border-radius: 50%; width: 22px; height: 22px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .bg-remove:hover { background: #fbc5bf; }
+
+    /* Dark mode */
+    [data-theme="dark"] {
+      --bg: #13141a; --card: #1c1e27; --border: #2a2d3a;
+      --primary: #6b8aff; --primary-dark: #5570e6; --primary-light: #1e2240;
+      --text: #e4e6ed; --muted: #8b90a8;
+      --accent: #f7a84f; --accent-light: #2a2318;
+      --work: #1e2240; --work-border: #6b8aff;
+      --vacation: #162a22; --vacation-border: #2dcc7e;
+      --sick: #2a1a19; --sick-border: #e86050;
+      --weekend: #181a22;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.25);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    [data-theme="dark"] .login-screen { background: linear-gradient(135deg, #1a1e3a 0%, #2a1e3a 50%, #2a2018 100%); }
+    [data-theme="dark"] .login-field input,
+    [data-theme="dark"] .modal input[type=text],
+    [data-theme="dark"] .modal input[type=time],
+    [data-theme="dark"] .modal input[type=number],
+    [data-theme="dark"] .modal select,
+    [data-theme="dark"] .pdf-modal-select,
+    [data-theme="dark"] .pdf-field-group input[type=text] { background: #232530; color: var(--text); }
+    [data-theme="dark"] .day-cell.empty { background: #161720; }
+    [data-theme="dark"] .day-entry-card { background: #232530; }
+    [data-theme="dark"] .day-add-btns button { background: var(--card); }
+
+    /* Theme toggle */
+    .theme-toggle { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 1rem; transition: all 0.15s; line-height: 1; }
+    .theme-toggle:hover { border-color: var(--primary); background: var(--primary-light); }
+
+    /* Week numbers */
+    .week-num { font-size: 0.62rem; color: var(--primary); font-weight: 700; text-align: center; padding: 4px 2px; background: var(--primary-light); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; min-height: 88px; user-select: none; }
+
+    /* Notes in entry */
+    .entry-note { font-size: 0.68rem; color: var(--accent); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    @media (max-width: 540px) {
+      .day-cell { min-height: 65px; padding: 4px; }
+      .entry-pill { font-size: 0.55rem; }
+      .user-badge { position: static; }
+      .app-header { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <h1>Uren Registratie</h1>
+    <p class="subtitle" id="login-subtitle">Log in om verder te gaan</p>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-field">
+      <label for="login-user">Gebruikersnaam</label>
+      <input type="text" id="login-user" placeholder="Gebruikersnaam" autocomplete="username" />
+    </div>
+    <div class="login-field">
+      <label for="login-pass">Wachtwoord</label>
+      <input type="password" id="login-pass" placeholder="Wachtwoord" autocomplete="current-password" />
+    </div>
+    <div class="login-field" id="reg-code-field" style="display:none">
+      <label for="login-regcode">Registratiecode</label>
+      <input type="password" id="login-regcode" placeholder="Geheime registratiecode" autocomplete="off" />
+    </div>
+    <label class="login-check">
+      <input type="checkbox" id="login-remember" checked /> Onthoud mij
+    </label>
+    <button class="login-btn" id="btn-login">Inloggen</button>
+    <button class="login-btn secondary" id="btn-register">Nieuw account aanmaken</button>
+  </div>
+</div>
+
+<!-- ============ APP SCREEN ============ -->
+<div class="app-screen" id="app-screen">
+  <div class="app-header">
+    <h1>Uren Registratie</h1>
+    <div class="user-badge">
+      <button class="theme-toggle" id="theme-toggle" title="Donker/licht thema">&#9790;</button>
+      <button class="theme-toggle" id="btn-security" title="Beveiliging instellen">&#128274;</button>
+      <span id="user-display"></span>
+      <button class="btn-logout" id="btn-logout">Uitloggen</button>
+    </div>
+  </div>
+  <p class="subtitle">Klik op een dag om uren, verlof of ziekte in te voeren</p>
+
+  <div class="nav">
+    <button id="prev-btn" title="Vorige maand">&#8592;</button>
+    <span class="month-label" id="month-label"></span>
+    <button id="next-btn" title="Volgende maand">&#8594;</button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="calendar-wrap">
+    <div class="calendar-header">
+      <div class="week-label">Wk</div>
+      <div class="day-name">ma</div><div class="day-name">di</div><div class="day-name">wo</div>
+      <div class="day-name">do</div><div class="day-name">vr</div><div class="day-name">za</div><div class="day-name">zo</div>
+    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot work"></div>Gewerkt</div>
+    <div class="legend-item"><div class="legend-dot vacation"></div>Verlof</div>
+    <div class="legend-item"><div class="legend-dot sick"></div>Ziek</div>
+    <div class="legend-item"><div class="legend-dot weekend"></div>Weekend</div>
+  </div>
+
+  <div class="client-breakdown" id="client-breakdown" style="display:none">
+    <h3>Uren per opdrachtgever</h3>
+    <div id="client-rows"></div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-action btn-export" id="pdf-export-btn">&#128196; PDF Urenstaat</button>
+    <button class="btn-action btn-year" id="year-toggle-btn">Jaaroverzicht</button>
+  </div>
+
+  <div class="year-overview" id="year-overview">
+    <h3 id="year-overview-title"></h3>
+    <table class="year-table">
+      <thead><tr><th>Opdrachtgever</th><th>Uren</th><th>Werkdagen</th><th>Verlofdagen</th><th>Ziektedagen</th></tr></thead>
+      <tbody id="year-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ BEVEILIGING MODAL ============ -->
+<div class="modal-backdrop" id="security-modal">
+  <div class="modal" style="max-width:380px">
+    <h2>&#128274; Beveiliging</h2>
+    <div id="security-regcode-status" style="margin-bottom:14px;padding:12px 14px;border-radius:10px;font-size:0.85rem;"></div>
+
+    <!-- Huidige code weergave -->
+    <div id="current-code-block" style="display:none;margin-bottom:16px;padding:14px;background:var(--primary-light);border:1.5px solid var(--primary);border-radius:10px;">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Huidige registratiecode</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="current-code-value" style="font-size:1.1rem;font-weight:700;color:var(--primary);letter-spacing:0.08em;flex:1">••••••</span>
+        <button id="btn-toggle-code" style="background:none;border:1.5px solid var(--primary);border-radius:7px;padding:5px 10px;font-size:0.75rem;font-weight:600;color:var(--primary);cursor:pointer;">Toon</button>
+      </div>
+    </div>
+
+    <div class="modal-field" style="margin-bottom:14px">
+      <label for="sec-code-new">Nieuwe registratiecode instellen</label>
+      <input type="password" id="sec-code-new" placeholder="Minimaal 4 tekens" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;font-weight:600;color:var(--text);outline:none;background:#fafbff;" />
+    </div>
+    <div class="modal-field" style="margin-bottom:16px">
+      <label for="sec-code-confirm">Bevestig nieuwe code</label>
+      <input type="password" id="sec-code-confirm" placeholder="Herhaal de code" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;font-weight:600;color:var(--text);outline:none;background:#fafbff;" />
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="sec-btn-cancel">Sluiten</button>
+      <button class="btn-save" id="sec-btn-save">Code opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DAY DETAIL MODAL ============ -->
+<div class="modal-backdrop" id="day-modal">
+  <div class="modal">
+    <h2 id="day-modal-title">Dag details</h2>
+    <div class="day-entries" id="day-entries"></div>
+    <div class="day-add-btns">
+      <button id="day-add-work">+ Uren</button>
+      <button id="day-add-vac">+ Verlof</button>
+      <button id="day-add-sick">+ Ziek</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="day-modal-close">Sluiten</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WORK ENTRY MODAL ============ -->
+<div class="modal-backdrop" id="work-modal">
+  <div class="modal">
+    <h2 id="work-modal-title">Uren invoeren</h2>
+    <div class="modal-fields">
+      <div class="modal-field full">
+        <label for="w-client">Opdrachtgever</label>
+        <input type="text" id="w-client" list="client-list" placeholder="bijv. Bedrijf X" autocomplete="off" />
+        <datalist id="client-list"></datalist>
+      </div>
+      <div class="modal-field">
+        <label for="w-start">Begintijd</label>
+        <input type="time" id="w-start" value="08:00" />
+      </div>
+      <div class="modal-field">
+        <label for="w-end">Eindtijd</label>
+        <input type="time" id="w-end" value="17:00" />
+      </div>
+      <div class="modal-field full">
+        <label for="w-break">Pauze (minuten)</label>
+        <input type="number" id="w-break" min="0" max="480" step="5" value="30" />
+      </div>
+      <div class="modal-field full">
+        <label for="w-note">Notitie (optioneel)</label>
+        <input type="text" id="w-note" placeholder="bijv. Rit Rotterdam-Antwerpen" />
+      </div>
+    </div>
+    <div class="calc-result" id="calc-result">
+      <span class="calc-label">Gewerkte uren</span>
+      <span class="calc-value" id="calc-value">8:30</span>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-danger" id="w-btn-delete" style="display:none">Verwijderen</button>
+      <button class="btn-cancel" id="w-btn-cancel">Annuleren</button>
+      <button class="btn-save" id="w-btn-save">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VACATION ENTRY MODAL ============ -->
+<div class="modal-backdrop" id="vac-modal">
+  <div class="modal">
+    <h2 id="vac-modal-title">Verlof invoeren</h2>
+    <div class="modal-fields">
+      <div class="modal-field full">
+        <label for="v-client">Opdrachtgever</label>
+        <input type="text" id="v-client" list="client-list" placeholder="bijv. Bedrijf X" autocomplete="off" />
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-danger" id="v-btn-delete" style="display:none">Verwijderen</button>
+      <button class="btn-cancel" id="v-btn-cancel">Annuleren</button>
+      <button class="btn-save" id="v-btn-save">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PDF MODAL ============ -->
+<div class="modal-backdrop" id="pdf-modal">
+  <div class="modal" style="max-width:400px">
+    <h2>PDF Urenstaat exporteren</h2>
+    <div class="pdf-field-group">
+      <label>Opdrachtgever</label>
+      <select class="pdf-modal-select" id="pdf-client-select"></select>
+    </div>
+    <div class="pdf-field-group">
+      <label>PDF achtergrond afbeelding (optioneel)</label>
+      <div class="bg-upload-area" id="bg-upload-area">
+        <div class="bg-placeholder" id="bg-placeholder"><span>&#128444;</span>Klik om achtergrond te kiezen</div>
+        <img id="bg-preview-img" style="display:none" />
+        <button class="bg-remove" id="bg-remove-btn" style="display:none" title="Verwijderen">&times;</button>
+      </div>
+      <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
+    </div>
+    <div class="pdf-field-group">
+      <label>Uw naam</label>
+      <input type="text" id="pdf-name" placeholder="bijv. Jan de Vries" />
+    </div>
+    <div class="pdf-preview" id="pdf-preview"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="pdf-btn-cancel">Annuleren</button>
+      <button class="btn-save" id="pdf-btn-gen" style="background:linear-gradient(135deg,#2dcc7e,#059669)">Genereer PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================
+// DARK MODE
+// ============================
+function initTheme() {
+  const saved = localStorage.getItem('uren_theme');
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  updateThemeIcon();
+}
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark) { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('uren_theme', 'light'); }
+  else { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('uren_theme', 'dark'); }
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '\u2600' : '\u263E';
+}
+document.getElementById('theme-toggle').onclick = toggleTheme;
+initTheme();
+
+// ============================
+// AUTH MODULE
+// ============================
+const USERS_KEY    = 'uren_users';
+const SESSION_KEY  = 'uren_session';
+const LOCKOUT_KEY  = 'uren_lockout';
+const REG_CODE_KEY = 'uren_regcode';
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS   = 10 * 60 * 1000; // 10 minuten
+const INACTIVITY_MS = 30 * 60 * 1000; // 30 minuten
+let currentUser = null;
+let inactivityTimer = null;
+
+// --- Registratiecode ---
+function getRegCode() {
+  return localStorage.getItem(REG_CODE_KEY) || null;
+}
+function setRegCode(code) {
+  localStorage.setItem(REG_CODE_KEY, code);
+}
+async function checkRegCode(input) {
+  const stored = getRegCode();
+  if (!stored) return true; // Nog geen code ingesteld: eerste keer vrij
+  return input === stored;
+}
+
+// --- Wachtwoord sterkte ---
+function checkPasswordStrength(password) {
+  if (password.length < 6) return { ok: false, msg: 'Wachtwoord moet minimaal 6 tekens zijn.' };
+  if (!/\d/.test(password)) return { ok: false, msg: 'Wachtwoord moet minimaal 1 cijfer bevatten.' };
+  return { ok: true };
+}
+
+// --- Login lockout ---
+function getLockout(username) {
+  try { return JSON.parse(localStorage.getItem(LOCKOUT_KEY)) || {}; } catch { return {}; }
+}
+function saveLockout(data) {
+  localStorage.setItem(LOCKOUT_KEY, JSON.stringify(data));
+}
+function isLockedOut(username) {
+  const locks = getLockout();
+  const entry = locks[username.toLowerCase()];
+  if (!entry) return false;
+  if (Date.now() < entry.until) return { locked: true, remaining: Math.ceil((entry.until - Date.now()) / 60000) };
+  // Lockout verlopen: reset
+  delete locks[username.toLowerCase()];
+  saveLockout(locks);
+  return false;
+}
+function recordFailedAttempt(username) {
+  const locks = getLockout();
+  const key = username.toLowerCase();
+  if (!locks[key]) locks[key] = { attempts: 0, until: 0 };
+  locks[key].attempts++;
+  if (locks[key].attempts >= MAX_ATTEMPTS) {
+    locks[key].until = Date.now() + LOCKOUT_MS;
+    locks[key].attempts = 0;
+  }
+  saveLockout(locks);
+  return MAX_ATTEMPTS - (locks[key]?.attempts || 0);
+}
+function resetFailedAttempts(username) {
+  const locks = getLockout();
+  delete locks[username.toLowerCase()];
+  saveLockout(locks);
+}
+
+// --- Inactiviteit timer ---
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    if (currentUser) {
+      clearSession();
+      loginScreen.style.display = 'flex';
+      appScreen.style.display = 'none';
+      document.getElementById('login-pass').value = '';
+      showError('Je bent automatisch uitgelogd wegens inactiviteit (30 min).');
+    }
+  }, INACTIVITY_MS);
+}
+function startInactivityWatch() {
+  ['click','keydown','mousemove','touchstart','scroll'].forEach(evt =>
+    document.addEventListener(evt, resetInactivityTimer, { passive: true })
+  );
+  resetInactivityTimer();
+}
+
+// --- Hashing ---
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const data = enc.encode(salt + password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; } catch { return {}; }
+}
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+async function registerUser(username, password, regCode) {
+  // Registratiecode controleren
+  const codeOk = await checkRegCode(regCode);
+  if (!codeOk) return { ok: false, msg: 'Registratiecode is onjuist.' };
+
+  const users = getUsers();
+  if (users[username.toLowerCase()]) return { ok: false, msg: 'Gebruikersnaam bestaat al.' };
+  if (username.length < 2) return { ok: false, msg: 'Gebruikersnaam moet minimaal 2 tekens zijn.' };
+
+  // Wachtwoord sterkte
+  const strength = checkPasswordStrength(password);
+  if (!strength.ok) return { ok: false, msg: strength.msg };
+
+  const salt = crypto.getRandomValues(new Uint8Array(16)).join('');
+  const hash = await hashPassword(password, salt);
+  users[username.toLowerCase()] = { displayName: username, salt, hash };
+  saveUsers(users);
+
+  // Eerste registratie: als nog geen code ingesteld, sla ingevoerde code op als de code
+  if (!getRegCode() && regCode) setRegCode(regCode);
+
+  return { ok: true };
+}
+
+async function loginUser(username, password) {
+  // Lockout check
+  const lock = isLockedOut(username);
+  if (lock) return { ok: false, msg: `Account geblokkeerd. Probeer het over ${lock.remaining} minuut${lock.remaining !== 1 ? 'en' : ''} opnieuw.` };
+
+  const users = getUsers();
+  const user = users[username.toLowerCase()];
+  if (!user) return { ok: false, msg: 'Gebruiker niet gevonden.' };
+
+  const hash = await hashPassword(password, user.salt);
+  if (hash !== user.hash) {
+    const remaining = recordFailedAttempt(username);
+    const attemptsLeft = remaining > 0 ? ` Nog ${remaining} poging${remaining !== 1 ? 'en' : ''}.` : ' Account geblokkeerd voor 10 minuten.';
+    return { ok: false, msg: `Wachtwoord onjuist.${attemptsLeft}` };
+  }
+
+  resetFailedAttempts(username);
+  return { ok: true, displayName: user.displayName };
+}
+
+function setSession(username, remember) {
+  currentUser = username.toLowerCase();
+  const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 dagen
+  if (remember) localStorage.setItem(SESSION_KEY, JSON.stringify({ user: currentUser, expiry }));
+  else sessionStorage.setItem(SESSION_KEY, currentUser);
+}
+
+function getSession() {
+  // Check sessionStorage first
+  const sess = sessionStorage.getItem(SESSION_KEY);
+  if (sess) return sess;
+  // Check localStorage met expiry
+  try {
+    const stored = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (stored && stored.user && stored.expiry > Date.now()) return stored.user;
+    if (stored && stored.expiry <= Date.now()) localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Oudere sessie zonder expiry
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw && !raw.startsWith('{')) return raw;
+  }
+  return null;
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+  clearTimeout(inactivityTimer);
+  currentUser = null;
+}
+
+function getDisplayName() {
+  const users = getUsers();
+  return users[currentUser]?.displayName || currentUser;
+}
+
+// ============================
+// DATA MODULE (per-user)
+// ============================
+const OLD_DATA_KEY = 'uren_registratie_v1';
+const OLD_PDF_NAME = 'uren_registratie_pdf_name';
+const OLD_PDF_FUNC = 'uren_registratie_pdf_func';
+
+function dataKey() { return `uren_data_${currentUser}`; }
+function pdfNameKey() { return `uren_pdf_name_${currentUser}`; }
+
+function migrateOldData() {
+  // Check if there's old data from before the login system
+  const oldRaw = localStorage.getItem(OLD_DATA_KEY);
+  if (!oldRaw) return false;
+
+  try {
+    const oldData = JSON.parse(oldRaw);
+    if (!oldData || Object.keys(oldData).length === 0) return false;
+
+    // Convert old single-entry format to new array format
+    const newData = {};
+    for (const [k, v] of Object.entries(oldData)) {
+      if (v && !Array.isArray(v)) newData[k] = [v];
+      else if (Array.isArray(v)) newData[k] = v;
+    }
+
+    // Save to current user's data
+    localStorage.setItem(dataKey(), JSON.stringify(newData));
+
+    // Migrate PDF settings too
+    const oldName = localStorage.getItem(OLD_PDF_NAME);
+    const oldFunc = localStorage.getItem(OLD_PDF_FUNC);
+    if (oldName) localStorage.setItem(pdfNameKey(), oldName);
+    // oldFunc niet meer nodig (functie-veld verwijderd)
+
+    // Remove old keys so migration only happens once
+    localStorage.removeItem(OLD_DATA_KEY);
+    localStorage.removeItem(OLD_PDF_NAME);
+    localStorage.removeItem(OLD_PDF_FUNC);
+
+    return true;
+  } catch { return false; }
+}
+
+function loadData() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(dataKey())) || {};
+    // Ensure all entries are in array format
+    for (const [k, v] of Object.entries(raw)) {
+      if (v && !Array.isArray(v)) raw[k] = [v];
+    }
+    return raw;
+  } catch { return {}; }
+}
+
+function saveData(data) {
+  localStorage.setItem(dataKey(), JSON.stringify(data));
+}
+
+function getDayEntries(data, key) {
+  return data[key] || [];
+}
+
+// ============================
+// APP STATE
+// ============================
+const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+const DAYS_NL = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+const today = new Date();
+let currentYear = today.getFullYear();
+let currentMonth = today.getMonth();
+
+// Current modal state
+let dayModalKey = null;
+let editingEntryIdx = null; // null = new, number = editing index
+
+function dateKeyStr(year, month, day) {
+  return `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function isWeekend(y, m, d) { const dow = new Date(y, m, d).getDay(); return dow === 0 || dow === 6; }
+function isToday(y, m, d) { return y === today.getFullYear() && m === today.getMonth() && d === today.getDate(); }
+function formatHours(h) {
+  const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60);
+  return mins > 0 ? `${hrs}:${String(mins).padStart(2,'0')}` : `${hrs}`;
+}
+function formatHoursColon(h) {
+  const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60);
+  return `${hrs}:${String(mins).padStart(2,'0')}`;
+}
+
+// ============================
+// LOGIN UI
+// ============================
+const loginScreen = document.getElementById('login-screen');
+const appScreen = document.getElementById('app-screen');
+const loginError = document.getElementById('login-error');
+
+function showError(msg) { loginError.textContent = msg; loginError.style.display = 'block'; }
+function hideError() { loginError.style.display = 'none'; }
+
+let isRegisterMode = false;
+
+document.getElementById('btn-register').onclick = () => {
+  isRegisterMode = !isRegisterMode;
+  document.getElementById('login-subtitle').textContent = isRegisterMode ? 'Maak een nieuw account aan' : 'Log in om verder te gaan';
+  document.getElementById('btn-login').textContent = isRegisterMode ? 'Account aanmaken' : 'Inloggen';
+  document.getElementById('btn-register').textContent = isRegisterMode ? 'Terug naar inloggen' : 'Nieuw account aanmaken';
+  document.getElementById('reg-code-field').style.display = isRegisterMode ? '' : 'none';
+  if (!isRegisterMode) document.getElementById('login-regcode').value = '';
+  hideError();
+};
+
+document.getElementById('btn-login').onclick = async () => {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const remember = document.getElementById('login-remember').checked;
+  hideError();
+
+  if (!username || !password) { showError('Vul gebruikersnaam en wachtwoord in.'); return; }
+
+  if (isRegisterMode) {
+    const regCode = document.getElementById('login-regcode').value;
+    if (!regCode) { showError('Vul de registratiecode in.'); return; }
+    const res = await registerUser(username, password, regCode);
+    if (!res.ok) { showError(res.msg); return; }
+    setSession(username, remember);
+    startApp();
+  } else {
+    const res = await loginUser(username, password);
+    if (!res.ok) { showError(res.msg); return; }
+    setSession(username, remember);
+    startApp();
+  }
+};
+
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-login').click();
+});
+document.getElementById('login-user').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-pass').focus();
+});
+
+document.getElementById('btn-logout').onclick = () => {
+  clearSession();
+  loginScreen.style.display = 'flex';
+  appScreen.style.display = 'none';
+  document.getElementById('login-pass').value = '';
+  hideError();
+};
+
+function startApp() {
+  loginScreen.style.display = 'none';
+  appScreen.style.display = 'block';
+  document.getElementById('user-display').textContent = getDisplayName();
+  startInactivityWatch();
+  checkSecurityOnStart();
+
+  // Migrate old data (from before login system) to this user
+  const migrated = migrateOldData();
+  if (migrated) {
+    alert('Je eerder ingevoerde data is automatisch overgezet naar je account!');
+  }
+
+  render();
+}
+
+// Auto-login if session exists
+(function checkSession() {
+  const sess = getSession();
+  if (sess && getUsers()[sess]) {
+    currentUser = sess;
+    startApp();
+  }
+})();
+
+// ============================
+// RENDER
+// ============================
+function render() {
+  const data = loadData();
+  renderNav();
+  renderSummary(data);
+  renderCalendar(data);
+  renderYearOverview(data);
+}
+
+function renderNav() {
+  document.getElementById('month-label').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+}
+
+function renderSummary(data) {
+  let totalHours = 0, vacDays = 0, sickDays = 0, workEntries = 0;
+  const clientMap = {};
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const entries = getDayEntries(data, dateKeyStr(currentYear, currentMonth, d));
+    for (const e of entries) {
+      if (e.type === 'work') {
+        totalHours += e.hours || 0; workEntries++;
+        const cn = e.client || 'Geen opdrachtgever';
+        if (!clientMap[cn]) clientMap[cn] = { hours: 0, days: 0 };
+        clientMap[cn].hours += e.hours || 0; clientMap[cn].days++;
+      }
+      else if (e.type === 'vacation') vacDays++;
+      else if (e.type === 'sick') sickDays++;
+    }
+  }
+
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-card work"><span class="label">Gewerkte uren</span><span class="value">${formatHours(totalHours)}</span><span class="sub">${workEntries} registratie${workEntries !== 1 ? 's' : ''}</span></div>
+    <div class="summary-card vacation"><span class="label">Verlof</span><span class="value">${vacDays}</span><span class="sub">dag${vacDays !== 1 ? 'en' : ''}</span></div>
+    <div class="summary-card sick"><span class="label">Ziektedagen</span><span class="value">${sickDays}</span><span class="sub">dag${sickDays !== 1 ? 'en' : ''}</span></div>
+  `;
+
+  // Client breakdown
+  const names = Object.keys(clientMap).sort();
+  const bEl = document.getElementById('client-breakdown');
+  const rEl = document.getElementById('client-rows');
+  if (names.length > 0) {
+    bEl.style.display = '';
+    rEl.innerHTML = names.map(n => `<div class="client-row"><span class="client-name">${n}</span><span><span class="client-hours">${formatHours(clientMap[n].hours)} uur</span><span class="client-days">(${clientMap[n].days} registratie${clientMap[n].days !== 1 ? 's' : ''})</span></span></div>`).join('');
+  } else { bEl.style.display = 'none'; }
+}
+
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function renderCalendar(data) {
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDow = new Date(currentYear, currentMonth, 1).getDay();
+  const offset = firstDow === 0 ? 6 : firstDow - 1;
+
+  // Week number for first row
+  const firstWeekDate = new Date(currentYear, currentMonth, 1);
+  const wn = document.createElement('div');
+  wn.className = 'week-num';
+  wn.textContent = getWeekNumber(firstWeekDate);
+  grid.appendChild(wn);
+
+  for (let i = 0; i < offset; i++) {
+    const el = document.createElement('div');
+    el.className = 'day-cell empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = dateKeyStr(currentYear, currentMonth, d);
+    const entries = getDayEntries(data, key);
+    const weekend = isWeekend(currentYear, currentMonth, d);
+    const todayF = isToday(currentYear, currentMonth, d);
+
+    const cell = document.createElement('div');
+    let cls = 'day-cell';
+    if (weekend) cls += ' weekend';
+    if (todayF) cls += ' today';
+
+    const types = new Set(entries.map(e => e.type));
+    if (types.size > 1) cls += ' has-mixed';
+    else if (types.has('work')) cls += ' has-work';
+    else if (types.has('vacation')) cls += ' has-vac';
+    else if (types.has('sick')) cls += ' has-sick';
+    cell.className = cls;
+
+    const num = document.createElement('div');
+    num.className = 'day-num';
+    num.textContent = d;
+    cell.appendChild(num);
+
+    // Show up to 3 entry pills
+    const maxPills = 3;
+    entries.slice(0, maxPills).forEach(e => {
+      const pill = document.createElement('div');
+      if (e.type === 'work') {
+        pill.className = 'entry-pill pill-work';
+        const hStr = e.hours ? formatHoursColon(e.hours) : '';
+        pill.textContent = e.client ? `${e.client} ${hStr}` : hStr;
+      } else if (e.type === 'vacation') {
+        pill.className = 'entry-pill pill-vac';
+        pill.textContent = e.client ? `Verlof — ${e.client}` : 'Verlof';
+      } else if (e.type === 'sick') {
+        pill.className = 'entry-pill pill-sick';
+        pill.textContent = 'Ziek';
+      }
+      cell.appendChild(pill);
+    });
+    if (entries.length > maxPills) {
+      const more = document.createElement('div');
+      more.className = 'day-more';
+      more.textContent = `+${entries.length - maxPills} meer`;
+      cell.appendChild(more);
+    }
+
+    cell.onclick = () => openDayModal(d, key);
+    grid.appendChild(cell);
+
+    // If this day is Sunday (end of row) and there are more days, add next week number
+    const dayOfWeek = new Date(currentYear, currentMonth, d).getDay();
+    if (dayOfWeek === 0 && d < daysInMonth) {
+      const nextMon = new Date(currentYear, currentMonth, d + 1);
+      const wnNext = document.createElement('div');
+      wnNext.className = 'week-num';
+      wnNext.textContent = getWeekNumber(nextMon);
+      grid.appendChild(wnNext);
+    }
+  }
+}
+
+// ============================
+// DAY DETAIL MODAL
+// ============================
+function openDayModal(day, key) {
+  dayModalKey = key;
+  const dateObj = new Date(currentYear, currentMonth, day);
+  const dayName = DAYS_NL[dateObj.getDay()];
+  document.getElementById('day-modal-title').textContent = `${dayName} ${day} ${MONTHS[currentMonth]} ${currentYear}`;
+  renderDayEntries();
+  document.getElementById('day-modal').classList.add('open');
+}
+
+function closeDayModal() {
+  document.getElementById('day-modal').classList.remove('open');
+  dayModalKey = null;
+}
+
+function renderDayEntries() {
+  const data = loadData();
+  const entries = getDayEntries(data, dayModalKey);
+  const container = document.getElementById('day-entries');
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="day-no-entries">Geen registraties voor deze dag</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  entries.forEach((e, idx) => {
+    const card = document.createElement('div');
+    card.className = 'day-entry-card';
+
+    const icon = document.createElement('div');
+    icon.className = 'entry-icon ' + (e.type === 'work' ? 'icon-work' : e.type === 'vacation' ? 'icon-vac' : 'icon-sick');
+    icon.textContent = e.type === 'work' ? 'W' : e.type === 'vacation' ? 'V' : 'Z';
+
+    const info = document.createElement('div');
+    info.className = 'entry-info';
+
+    const title = document.createElement('div');
+    title.className = 'entry-title';
+    title.textContent = e.client || (e.type === 'work' ? 'Uren' : e.type === 'vacation' ? 'Verlof' : 'Ziek');
+
+    const sub = document.createElement('div');
+    sub.className = 'entry-sub';
+    if (e.type === 'work') {
+      sub.textContent = `${e.start || '?'} – ${e.end || '?'} | pauze: ${e.breakMin || 0} min`;
+    } else {
+      sub.textContent = e.type === 'vacation' ? 'Vrije dag / verlof' : 'Ziekte';
+    }
+
+    info.appendChild(title);
+    info.appendChild(sub);
+
+    if (e.note) {
+      const noteEl = document.createElement('div');
+      noteEl.className = 'entry-note';
+      noteEl.textContent = e.note;
+      info.appendChild(noteEl);
+    }
+
+    const hrs = document.createElement('div');
+    hrs.className = 'entry-hours' + (e.type === 'vacation' ? ' vac' : e.type === 'sick' ? ' sick' : '');
+    hrs.textContent = e.type === 'work' && e.hours ? formatHoursColon(e.hours) + 'u' : e.type === 'vacation' ? 'Verlof' : 'Ziek';
+
+    const del = document.createElement('button');
+    del.className = 'btn-entry-del';
+    del.innerHTML = '&times;';
+    del.title = 'Verwijderen';
+    del.onclick = (ev) => { ev.stopPropagation(); deleteEntry(idx); };
+
+    card.appendChild(icon);
+    card.appendChild(info);
+    card.appendChild(hrs);
+    card.appendChild(del);
+
+    card.onclick = () => {
+      if (e.type === 'work') openWorkModal(idx);
+      else if (e.type === 'vacation') openVacModal(idx);
+    };
+
+    container.appendChild(card);
+  });
+}
+
+function deleteEntry(idx) {
+  const data = loadData();
+  const entries = getDayEntries(data, dayModalKey);
+  entries.splice(idx, 1);
+  if (entries.length === 0) delete data[dayModalKey];
+  else data[dayModalKey] = entries;
+  saveData(data);
+  renderDayEntries();
+  render();
+}
+
+document.getElementById('day-modal-close').onclick = closeDayModal;
+document.getElementById('day-modal').addEventListener('click', e => { if (e.target.id === 'day-modal') closeDayModal(); });
+
+// Add buttons
+document.getElementById('day-add-work').onclick = () => openWorkModal(null);
+document.getElementById('day-add-vac').onclick = () => openVacModal(null);
+document.getElementById('day-add-sick').onclick = () => {
+  const data = loadData();
+  const entries = getDayEntries(data, dayModalKey);
+  entries.push({ type: 'sick' });
+  data[dayModalKey] = entries;
+  saveData(data);
+  renderDayEntries();
+  render();
+};
+
+// ============================
+// WORK ENTRY MODAL
+// ============================
+function getClientNames() {
+  const data = loadData();
+  const names = new Set();
+  for (const entries of Object.values(data)) {
+    if (!Array.isArray(entries)) continue;
+    for (const e of entries) { if (e.client) names.add(e.client); }
+  }
+  return [...names].sort();
+}
+
+function populateClientList() {
+  document.getElementById('client-list').innerHTML = getClientNames().map(n => `<option value="${n}">`).join('');
+}
+
+function calcHours() {
+  const s = document.getElementById('w-start').value;
+  const en = document.getElementById('w-end').value;
+  const b = parseInt(document.getElementById('w-break').value) || 0;
+  const rEl = document.getElementById('calc-result');
+  const vEl = document.getElementById('calc-value');
+  if (!s || !en) { rEl.classList.add('invalid'); vEl.textContent = 'Vul tijden in'; return null; }
+  const [sh,sm] = s.split(':').map(Number);
+  const [eh,em] = en.split(':').map(Number);
+  let total = (eh*60+em) - (sh*60+sm) - b;
+  if (total <= 0) { rEl.classList.add('invalid'); vEl.textContent = 'Eindtijd moet na begintijd'; return null; }
+  rEl.classList.remove('invalid');
+  vEl.textContent = formatHoursColon(total / 60);
+  return total / 60;
+}
+
+function openWorkModal(idx) {
+  editingEntryIdx = idx;
+  populateClientList();
+  const isEdit = idx !== null;
+  document.getElementById('work-modal-title').textContent = isEdit ? 'Uren bewerken' : 'Uren invoeren';
+  document.getElementById('w-btn-delete').style.display = isEdit ? '' : 'none';
+
+  if (isEdit) {
+    const data = loadData();
+    const entry = getDayEntries(data, dayModalKey)[idx];
+    document.getElementById('w-client').value = entry.client || '';
+    document.getElementById('w-start').value = entry.start || '08:00';
+    document.getElementById('w-end').value = entry.end || '17:00';
+    document.getElementById('w-break').value = entry.breakMin ?? 30;
+    document.getElementById('w-note').value = entry.note || '';
+  } else {
+    const names = getClientNames();
+    document.getElementById('w-client').value = names.length > 0 ? names[names.length - 1] : '';
+    document.getElementById('w-start').value = '08:00';
+    document.getElementById('w-end').value = '17:00';
+    document.getElementById('w-break').value = '30';
+    document.getElementById('w-note').value = '';
+  }
+  calcHours();
+  document.getElementById('work-modal').classList.add('open');
+  document.getElementById('w-client').focus();
+}
+
+function closeWorkModal() {
+  document.getElementById('work-modal').classList.remove('open');
+  editingEntryIdx = null;
+}
+
+['w-start','w-end','w-break'].forEach(id => document.getElementById(id).addEventListener('input', calcHours));
+
+document.getElementById('w-btn-cancel').onclick = closeWorkModal;
+document.getElementById('work-modal').addEventListener('click', e => { if (e.target.id === 'work-modal') closeWorkModal(); });
+
+document.getElementById('w-btn-save').onclick = () => {
+  const hours = calcHours();
+  if (hours === null) return;
+  const data = loadData();
+  const entries = getDayEntries(data, dayModalKey);
+  const noteVal = document.getElementById('w-note').value.trim();
+  const entry = {
+    type: 'work', hours,
+    start: document.getElementById('w-start').value,
+    end: document.getElementById('w-end').value,
+    breakMin: parseInt(document.getElementById('w-break').value) || 0,
+    client: document.getElementById('w-client').value.trim(),
+    note: noteVal || undefined
+  };
+  if (editingEntryIdx !== null) entries[editingEntryIdx] = entry;
+  else entries.push(entry);
+  data[dayModalKey] = entries;
+  saveData(data);
+  closeWorkModal();
+  renderDayEntries();
+  render();
+};
+
+document.getElementById('w-btn-delete').onclick = () => {
+  if (editingEntryIdx !== null) deleteEntry(editingEntryIdx);
+  closeWorkModal();
+};
+
+document.querySelectorAll('#work-modal input').forEach(inp => {
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('w-btn-save').click();
+    if (e.key === 'Escape') closeWorkModal();
+  });
+});
+
+// ============================
+// VACATION ENTRY MODAL
+// ============================
+function openVacModal(idx) {
+  editingEntryIdx = idx;
+  populateClientList();
+  const isEdit = idx !== null;
+  document.getElementById('vac-modal-title').textContent = isEdit ? 'Verlof bewerken' : 'Verlof invoeren';
+  document.getElementById('v-btn-delete').style.display = isEdit ? '' : 'none';
+
+  if (isEdit) {
+    const data = loadData();
+    const entry = getDayEntries(data, dayModalKey)[idx];
+    document.getElementById('v-client').value = entry.client || '';
+  } else {
+    const names = getClientNames();
+    document.getElementById('v-client').value = names.length > 0 ? names[names.length - 1] : '';
+  }
+  document.getElementById('vac-modal').classList.add('open');
+  document.getElementById('v-client').focus();
+}
+
+function closeVacModal() {
+  document.getElementById('vac-modal').classList.remove('open');
+  editingEntryIdx = null;
+}
+
+document.getElementById('v-btn-cancel').onclick = closeVacModal;
+document.getElementById('vac-modal').addEventListener('click', e => { if (e.target.id === 'vac-modal') closeVacModal(); });
+
+document.getElementById('v-btn-save').onclick = () => {
+  const data = loadData();
+  const entries = getDayEntries(data, dayModalKey);
+  const entry = { type: 'vacation', client: document.getElementById('v-client').value.trim() };
+  if (editingEntryIdx !== null) entries[editingEntryIdx] = entry;
+  else entries.push(entry);
+  data[dayModalKey] = entries;
+  saveData(data);
+  closeVacModal();
+  renderDayEntries();
+  render();
+};
+
+document.getElementById('v-btn-delete').onclick = () => {
+  if (editingEntryIdx !== null) deleteEntry(editingEntryIdx);
+  closeVacModal();
+};
+
+document.getElementById('v-client').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('v-btn-save').click();
+  if (e.key === 'Escape') closeVacModal();
+});
+
+// ============================
+// YEAR OVERVIEW
+// ============================
+function renderYearOverview(data) {
+  document.getElementById('year-toggle-btn').textContent = `Jaaroverzicht ${currentYear}`;
+  document.getElementById('year-overview-title').textContent = `Jaaroverzicht ${currentYear}`;
+  const clients = {};
+  let tH = 0, tW = 0, tV = 0, tS = 0;
+
+  for (const [key, entries] of Object.entries(data)) {
+    if (!key.startsWith(`${currentYear}-`) || !Array.isArray(entries)) continue;
+    for (const e of entries) {
+      const cn = e.client || 'Geen opdrachtgever';
+      if (!clients[cn]) clients[cn] = { hours: 0, workDays: 0, vacDays: 0, sickDays: 0 };
+      if (e.type === 'work') { clients[cn].hours += e.hours || 0; clients[cn].workDays++; tH += e.hours || 0; tW++; }
+      else if (e.type === 'vacation') { clients[cn].vacDays++; tV++; }
+      else if (e.type === 'sick') { clients[cn].sickDays++; tS++; }
+    }
+  }
+
+  const names = Object.keys(clients).sort();
+  const tbody = document.getElementById('year-table-body');
+  if (names.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nog geen registraties in ${currentYear}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = names.map(n => {
+    const c = clients[n];
+    return `<tr><td>${n}</td><td class="val-hours">${formatHours(c.hours)}</td><td>${c.workDays}</td><td class="val-vac">${c.vacDays}</td><td class="val-sick">${c.sickDays}</td></tr>`;
+  }).join('') + `<tr class="row-total"><td>Totaal</td><td class="val-hours">${formatHours(tH)}</td><td>${tW}</td><td class="val-vac">${tV}</td><td class="val-sick">${tS}</td></tr>`;
+}
+
+document.getElementById('year-toggle-btn').onclick = () => document.getElementById('year-overview').classList.toggle('open');
+
+// ============================
+// NAV
+// ============================
+document.getElementById('prev-btn').onclick = () => { if (currentMonth === 0) { currentMonth = 11; currentYear--; } else currentMonth--; render(); };
+document.getElementById('next-btn').onclick = () => { if (currentMonth === 11) { currentMonth = 0; currentYear++; } else currentMonth++; render(); };
+
+// ============================
+// BEVEILIGING MODAL
+// ============================
+let codeVisible = false;
+
+function openSecurityModal() {
+  const currentCode = getRegCode();
+  const hasCode = !!currentCode;
+  const statusEl = document.getElementById('security-regcode-status');
+  const codeBlock = document.getElementById('current-code-block');
+
+  if (hasCode) {
+    statusEl.style.background = 'var(--vacation)';
+    statusEl.style.color = '#1a6640';
+    statusEl.innerHTML = '&#10003; Registratiecode is ingesteld. Alleen met de code kan iemand zich registreren.';
+    codeBlock.style.display = '';
+    codeVisible = false;
+    document.getElementById('current-code-value').textContent = '••••••';
+    document.getElementById('btn-toggle-code').textContent = 'Toon';
+  } else {
+    statusEl.style.background = '#fff6eb';
+    statusEl.style.color = '#9a5a00';
+    statusEl.innerHTML = '&#9888; Nog geen registratiecode ingesteld! Stel er direct een in.';
+    codeBlock.style.display = 'none';
+  }
+
+  document.getElementById('sec-code-new').value = '';
+  document.getElementById('sec-code-confirm').value = '';
+  document.getElementById('security-modal').classList.add('open');
+}
+
+document.getElementById('btn-toggle-code').onclick = () => {
+  const currentCode = getRegCode();
+  codeVisible = !codeVisible;
+  document.getElementById('current-code-value').textContent = codeVisible ? currentCode : '••••••';
+  document.getElementById('btn-toggle-code').textContent = codeVisible ? 'Verberg' : 'Toon';
+};
+
+document.getElementById('btn-security').onclick = openSecurityModal;
+document.getElementById('sec-btn-cancel').onclick = () => document.getElementById('security-modal').classList.remove('open');
+document.getElementById('security-modal').addEventListener('click', e => { if (e.target.id === 'security-modal') document.getElementById('security-modal').classList.remove('open'); });
+
+document.getElementById('sec-btn-save').onclick = () => {
+  const newCode = document.getElementById('sec-code-new').value;
+  const confirm = document.getElementById('sec-code-confirm').value;
+  if (!newCode || newCode.length < 4) { alert('Code moet minimaal 4 tekens zijn.'); return; }
+  if (newCode !== confirm) { alert('De codes komen niet overeen.'); return; }
+  setRegCode(newCode);
+  document.getElementById('security-modal').classList.remove('open');
+  alert('✅ Registratiecode opgeslagen! Bewaar hem goed.');
+};
+
+// Toon waarschuwing als er geen code is ingesteld bij opstarten
+function checkSecurityOnStart() {
+  if (!getRegCode() && Object.keys(getUsers()).length > 0) {
+    setTimeout(() => {
+      const warn = confirm('⚠️ Beveiligingswaarschuwing\n\nEr is nog geen registratiecode ingesteld.\nIedereen die de link kent kan nu een account aanmaken.\n\nWil je nu een registratiecode instellen?');
+      if (warn) openSecurityModal();
+    }, 800);
+  }
+}
+
+// ============================
+// PDF EXPORT
+// ============================
+function getMonthClients() {
+  const data = loadData();
+  const dim = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const cls = new Set();
+  let hasNoClient = false;
+  for (let d = 1; d <= dim; d++) {
+    for (const e of getDayEntries(data, dateKeyStr(currentYear, currentMonth, d))) {
+      if (e.client) cls.add(e.client);
+      else hasNoClient = true;
+    }
+  }
+  const sorted = [...cls].sort();
+  if (hasNoClient) sorted.unshift('__GEEN__');
+  return sorted;
+}
+
+function clientMatch(entryClient, selectedClient) {
+  if (selectedClient === '__ALL__') return true;
+  if (selectedClient === '__GEEN__') return !entryClient;
+  return (entryClient || '') === selectedClient;
+}
+
+function clientDisplayName(val) {
+  if (val === '__ALL__') return 'Alle opdrachtgevers';
+  if (val === '__GEEN__') return 'Geen opdrachtgever';
+  return val;
+}
+
+function updatePdfPreview() {
+  const client = document.getElementById('pdf-client-select').value;
+  const data = loadData();
+  const dim = new Date(currentYear, currentMonth + 1, 0).getDate();
+  let wk = 0, hrs = 0, vc = 0, sk = 0;
+  for (let d = 1; d <= dim; d++) {
+    for (const e of getDayEntries(data, dateKeyStr(currentYear, currentMonth, d))) {
+      if (!clientMatch(e.client, client)) continue;
+      if (e.type === 'work') { wk++; hrs += e.hours || 0; }
+      else if (e.type === 'vacation') vc++;
+      else if (e.type === 'sick') sk++;
+    }
+  }
+  document.getElementById('pdf-preview').innerHTML = `<strong>${MONTHS[currentMonth]} ${currentYear}</strong> — ${clientDisplayName(client)}<br>${wk} registratie${wk !== 1 ? 's' : ''} &middot; <strong>${formatHours(hrs)} uur</strong><br>${vc} verlofdag${vc !== 1 ? 'en' : ''} &middot; ${sk} ziektedag${sk !== 1 ? 'en' : ''}`;
+}
+
+// === PDF achtergrond afbeelding per client ===
+function bgKey(clientName) { return `uren_bg_${currentUser}_${clientName}`; }
+
+function getClientBg(clientName) {
+  return localStorage.getItem(bgKey(clientName)) || null;
+}
+
+function saveClientBg(clientName, base64) {
+  localStorage.setItem(bgKey(clientName), base64);
+}
+
+function removeClientBg(clientName) {
+  localStorage.removeItem(bgKey(clientName));
+}
+
+function updateBgPreview() {
+  const client = document.getElementById('pdf-client-select').value;
+  const bg = getClientBg(client);
+  const img = document.getElementById('bg-preview-img');
+  const placeholder = document.getElementById('bg-placeholder');
+  const removeBtn = document.getElementById('bg-remove-btn');
+  const area = document.getElementById('bg-upload-area');
+
+  if (bg) {
+    img.src = bg;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+    removeBtn.style.display = 'flex';
+    area.classList.add('has-bg');
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+    removeBtn.style.display = 'none';
+    area.classList.remove('has-bg');
+  }
+}
+
+document.getElementById('bg-upload-area').onclick = (e) => {
+  if (e.target.id === 'bg-remove-btn') return;
+  document.getElementById('bg-file-input').click();
+};
+
+document.getElementById('bg-file-input').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 800;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const base64 = canvas.toDataURL('image/jpeg', 0.82);
+      const client = document.getElementById('pdf-client-select').value;
+      saveClientBg(client, base64);
+      updateBgPreview();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+};
+
+document.getElementById('bg-remove-btn').onclick = (e) => {
+  e.stopPropagation();
+  const client = document.getElementById('pdf-client-select').value;
+  removeClientBg(client);
+  updateBgPreview();
+};
+
+document.getElementById('pdf-export-btn').onclick = () => {
+  if (!window.jspdf) {
+    alert('PDF bibliotheek (jsPDF) kon niet geladen worden.\n\nControleer:\n1. Je internetverbinding\n2. Herlaad de pagina (F5)\n\nAls het blijft falen, blokeert mogelijk je browser externe scripts bij lokale bestanden.');
+    return;
+  }
+  const cls = getMonthClients();
+  const sel = document.getElementById('pdf-client-select');
+  sel.innerHTML = '';
+  if (cls.length === 0) { alert('Geen registraties voor deze maand.'); return; }
+  cls.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = clientDisplayName(c); sel.appendChild(o); });
+  if (cls.length > 1) { const o = document.createElement('option'); o.value = '__ALL__'; o.textContent = '— Alle opdrachtgevers —'; sel.appendChild(o); }
+  document.getElementById('pdf-name').value = localStorage.getItem(pdfNameKey()) || '';
+  updatePdfPreview();
+  updateBgPreview();
+  document.getElementById('pdf-modal').classList.add('open');
+};
+
+document.getElementById('pdf-btn-cancel').onclick = () => document.getElementById('pdf-modal').classList.remove('open');
+document.getElementById('pdf-modal').addEventListener('click', e => { if (e.target.id === 'pdf-modal') document.getElementById('pdf-modal').classList.remove('open'); });
+document.getElementById('pdf-client-select').addEventListener('change', () => { updatePdfPreview(); updateBgPreview(); });
+
+document.getElementById('pdf-btn-gen').onclick = () => {
+  const client = document.getElementById('pdf-client-select').value;
+  const uName = document.getElementById('pdf-name').value.trim();
+  localStorage.setItem(pdfNameKey(), uName);
+  if (client === '__ALL__') {
+    getMonthClients().filter(c => c !== '__GEEN__').forEach(c => generatePdf(c, uName));
+    if (getMonthClients().includes('__GEEN__')) generatePdf('__GEEN__', uName);
+  } else {
+    generatePdf(client, uName);
+  }
+  document.getElementById('pdf-modal').classList.remove('open');
+};
+
+function generatePdf(client, userName) {
+  try {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pw = doc.internal.pageSize.getWidth();
+  const pH = doc.internal.pageSize.getHeight();
+  const data = loadData();
+  const dim = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const mn = MONTHS[currentMonth];
+  const pdfClientName = clientDisplayName(client);
+
+  // Zakelijk grijs kleurenschema
+  const accent = [55, 58, 64];       // donkergrijs accent
+  const dark = [30, 32, 38];         // bijna zwart tekst
+  const muted = [110, 115, 125];     // grijs subtekst
+  const lightBg = [240, 241, 243];   // licht grijze achtergrond
+  const lineclr = [210, 212, 218];   // lijn kleur
+  const white = [255, 255, 255];
+
+  // === Achtergrond afbeelding (watermark) ===
+  const bgImage = getClientBg(client);
+  if (bgImage) {
+    try {
+      const fmt = bgImage.indexOf('image/png') !== -1 ? 'PNG' : 'JPEG';
+      // Afbeelding rechts op de pagina, zodat tabel links vrij blijft
+      const bgW = pw * 0.55;
+      const tmpImg = new Image();
+      tmpImg.src = bgImage;
+      const imgRatio = (tmpImg.height || 1) / (tmpImg.width || 1);
+      const bgH = bgW * imgRatio;
+      const bgX = pw - bgW + 10;
+      const bgY = (pH - bgH) / 2;
+      doc.addImage(bgImage, fmt, bgX, bgY, bgW, bgH);
+      // Semi-transparante witte overlay zodat tekst leesbaar blijft
+      doc.setGState(new doc.GState({ opacity: 0.82 }));
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pw, pH, 'F');
+      doc.setGState(new doc.GState({ opacity: 1 }));
+    } catch (bgErr) { console.warn('Achtergrond kon niet worden toegevoegd:', bgErr); }
+  }
+
+  // === Header bar (grijs) ===
+  doc.setFillColor(...accent);
+  doc.rect(0, 0, pw, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('URENSTAAT', 15, 12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`${mn} ${currentYear}`, 15, 19);
+
+  // Subtiele dunne lijn onder header
+  doc.setDrawColor(...lineclr); doc.setLineWidth(0.5);
+  doc.line(0, 26, pw, 26);
+
+  // === Client info blok ===
+  let y = 35;
+  doc.setTextColor(...dark); doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text(pdfClientName, 15, y); y += 6;
+  doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+  if (userName) { doc.text(`Naam: ${userName}`, 15, y); y += 4.5; }
+  doc.text(`Periode: 1 ${mn.toLowerCase()} ${currentYear} t/m ${dim} ${mn.toLowerCase()} ${currentYear}`, 15, y); y += 3.5;
+  doc.setDrawColor(...lineclr); doc.setLineWidth(0.2); doc.line(15, y, pw - 15, y); y += 5;
+
+  // === Data verzamelen ===
+  const rows = [];
+  let totalH = 0, vc = 0, sk = 0;
+
+  for (let d = 1; d <= dim; d++) {
+    for (const e of getDayEntries(data, dateKeyStr(currentYear, currentMonth, d))) {
+      if (!clientMatch(e.client, client)) continue;
+      const dateObj = new Date(currentYear, currentMonth, d);
+      const dn = DAYS_NL[dateObj.getDay()];
+      const ds = `${String(d).padStart(2,'0')}-${String(currentMonth+1).padStart(2,'0')}-${currentYear}`;
+      if (e.type === 'work') {
+        const h = e.hours || 0; totalH += h;
+        rows.push({ type:'work', cells:[ds, dn, e.start||'', e.end||'', `${e.breakMin||0} min`, formatHoursColon(h)] });
+      } else if (e.type === 'vacation') {
+        vc++; rows.push({ type:'vacation', cells:[ds, dn, '','','','Verlof'] });
+      } else if (e.type === 'sick') {
+        sk++; rows.push({ type:'sick', cells:[ds, dn, '','','','Ziek'] });
+      }
+    }
+  }
+
+  // === Tabel (grijs thema, goed leesbaar) ===
+  doc.autoTable({
+    startY: y, margin: { left: 15, right: 15 },
+    head: [['Datum','Dag','Begin','Eind','Pauze','Uren']],
+    body: rows.map(r => r.cells),
+    foot: [['','','','','Totaal:', formatHoursColon(totalH)]],
+    theme: 'plain',
+    headStyles: { fillColor: [225,227,232], textColor: dark, fontStyle: 'bold', fontSize: 9.5, cellPadding: 4, lineColor: lineclr, lineWidth: 0.4 },
+    bodyStyles: { fontSize: 9.5, textColor: [20,22,28], cellPadding: 3.5, lineColor: [220,222,228], lineWidth: 0.2 },
+    footStyles: { fillColor: accent, textColor: white, fontStyle: 'bold', fontSize: 10, cellPadding: 4.5 },
+    columnStyles: { 0:{cellWidth:30}, 1:{cellWidth:22}, 2:{cellWidth:22,halign:'center'}, 3:{cellWidth:22,halign:'center'}, 4:{cellWidth:24,halign:'center'}, 5:{cellWidth:24,halign:'right',fontStyle:'bold'} },
+    didParseCell: function(d) {
+      if (d.section === 'body') {
+        const r = rows[d.row.index];
+        if (r?.type === 'vacation' && d.column.index === 5) { d.cell.styles.textColor = [80,140,100]; d.cell.styles.fontStyle = 'bold'; }
+        if (r?.type === 'sick' && d.column.index === 5) { d.cell.styles.textColor = [180,75,65]; d.cell.styles.fontStyle = 'bold'; }
+      }
+    },
+    alternateRowStyles: { fillColor: [245,246,248] },
+  });
+
+  // === Samenvatting blok (grijs) ===
+  y = doc.lastAutoTable.finalY + 10;
+  const bw = pw - 30;
+  doc.setFillColor(...lightBg); doc.roundedRect(15, y, bw, 26, 2, 2, 'F');
+  doc.setDrawColor(...lineclr); doc.setLineWidth(0.2); doc.roundedRect(15, y, bw, 26, 2, 2, 'S');
+  const wc = rows.filter(r => r.type === 'work').length;
+
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+  doc.text('Werkregistraties', 22, y + 7);
+  doc.setFont('helvetica','bold'); doc.setTextColor(...dark); doc.setFontSize(13);
+  doc.text(`${wc}`, 22, y + 16);
+
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+  doc.text('Verlofdagen', 70, y + 7);
+  doc.setFont('helvetica','bold'); doc.setTextColor(80, 140, 100); doc.setFontSize(13);
+  doc.text(`${vc}`, 70, y + 16);
+
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+  doc.text('Ziektedagen', 120, y + 7);
+  doc.setFont('helvetica','bold'); doc.setTextColor(180, 75, 65); doc.setFontSize(13);
+  doc.text(`${sk}`, 120, y + 16);
+
+  // === Footer ===
+  doc.setFontSize(7); doc.setTextColor(170, 172, 178);
+  doc.text(`Gegenereerd op ${new Date().toLocaleDateString('nl-NL')}  |  Urenstaat ${mn} ${currentYear}  |  ${pdfClientName}`, 15, pH - 8);
+
+  const safeName = pdfClientName.replace(/[^a-zA-Z0-9]/g,'_');
+  doc.save(`Urenstaat_${safeName}_${mn}_${currentYear}.pdf`);
+
+  } catch (err) {
+    alert('Fout bij PDF genereren: ' + err.message);
+    console.error('PDF Error:', err);
+  }
+}
+
+// ============================
+// SERVICE WORKER REGISTRATIE
+// ============================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('✅ Service Worker geregistreerd'))
+      .catch(err => console.warn('Service Worker fout:', err));
+  });
+}
+</script>
+</body>
+</html>

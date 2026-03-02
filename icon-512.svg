@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f6ef7"/>
+      <stop offset="100%" style="stop-color:#6c5ce7"/>
+    </linearGradient>
+  </defs>
+  <!-- Achtergrond -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <!-- Kalender icoon -->
+  <rect x="96" y="148" width="320" height="268" rx="24" fill="white" opacity="0.95"/>
+  <!-- Bovenbalk -->
+  <rect x="96" y="148" width="320" height="80" rx="24" fill="white" opacity="0.15"/>
+  <rect x="96" y="196" width="320" height="32" fill="white" opacity="0.15"/>
+  <!-- Ringetjes -->
+  <rect x="176" y="116" width="26" height="64" rx="13" fill="white"/>
+  <rect x="310" y="116" width="26" height="64" rx="13" fill="white"/>
+  <!-- Rasterlijnen -->
+  <line x1="96" y1="280" x2="416" y2="280" stroke="#4f6ef7" stroke-width="3" opacity="0.25"/>
+  <line x1="96" y1="340" x2="416" y2="340" stroke="#4f6ef7" stroke-width="3" opacity="0.25"/>
+  <line x1="200" y1="228" x2="200" y2="416" stroke="#4f6ef7" stroke-width="3" opacity="0.25"/>
+  <line x1="308" y1="228" x2="308" y2="416" stroke="#4f6ef7" stroke-width="3" opacity="0.25"/>
+  <!-- Stip vandaag -->
+  <circle cx="148" cy="310" r="22" fill="#4f6ef7"/>
+  <!-- Uren blokjes -->
+  <rect x="216" y="296" width="72" height="28" rx="8" fill="#4f6ef7" opacity="0.5"/>
+  <rect x="324" y="296" width="72" height="28" rx="8" fill="#2dcc7e" opacity="0.7"/>
+  <rect x="108" y="356" width="72" height="28" rx="8" fill="#4f6ef7" opacity="0.5"/>
+  <rect x="216" y="356" width="72" height="28" rx="8" fill="#4f6ef7" opacity="0.5"/>
+  <rect x="324" y="356" width="72" height="28" rx="8" fill="#f7a84f" opacity="0.7"/>
+</svg>

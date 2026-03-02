@@ -1,0 +1,35 @@
+{
+  "name": "Uren Registratie",
+  "short_name": "Uren",
+  "description": "Bijhouden van werkuren, verlof en ziekte per maand",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f2f7",
+  "theme_color": "#4f6ef7",
+  "lang": "nl",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Huidige maand",
+      "short_name": "Uren",
+      "description": "Open de uren registratie voor deze maand",
+      "url": "./index.html"
+    }
+  ],
+  "categories": ["productivity", "business"]
+}
