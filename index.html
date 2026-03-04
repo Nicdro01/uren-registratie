@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -381,6 +382,16 @@
       <label for="sec-code-confirm">Bevestig nieuwe code</label>
       <input type="password" id="sec-code-confirm" placeholder="Herhaal de code" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:1rem;font-weight:600;color:var(--text);outline:none;background:#fafbff;" />
     </div>
+
+    <div style="border-top:1.5px solid var(--border);margin:16px 0;padding-top:16px;">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Data beheer</div>
+      <div style="display:flex;gap:8px;flex-direction:column;">
+        <button id="btn-export-data" style="background:#e8faf2;border:1.5px solid #2dcc7e;border-radius:10px;padding:10px;font-size:0.85rem;font-weight:600;color:#1a8c56;cursor:pointer;transition:all 0.15s;">📥 Exporteer mijn data</button>
+        <button id="btn-import-data" style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:10px;padding:10px;font-size:0.85rem;font-weight:600;color:var(--primary);cursor:pointer;transition:all 0.15s;">📤 Importeer data</button>
+        <input type="file" id="import-file-input" accept=".json" style="display:none;" />
+      </div>
+    </div>
+
     <div class="modal-btns">
       <button class="btn-cancel" id="sec-btn-cancel">Sluiten</button>
       <button class="btn-save" id="sec-btn-save">Code opslaan</button>
@@ -777,12 +788,10 @@ function dateKeyStr(year, month, day) {
 function isWeekend(y, m, d) { const dow = new Date(y, m, d).getDay(); return dow === 0 || dow === 6; }
 function isToday(y, m, d) { return y === today.getFullYear() && m === today.getMonth() && d === today.getDate(); }
 function formatHours(h) {
-  const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60);
-  return mins > 0 ? `${hrs}:${String(mins).padStart(2,'0')}` : `${hrs}`;
+  return h.toFixed(2).replace('.', ',');
 }
 function formatHoursColon(h) {
-  const hrs = Math.floor(h); const mins = Math.round((h - hrs) * 60);
-  return `${hrs}:${String(mins).padStart(2,'0')}`;
+  return h.toFixed(2).replace('.', ',');
 }
 
 // ============================
@@ -1381,6 +1390,61 @@ function checkSecurityOnStart() {
     }, 800);
   }
 }
+
+// ============================
+// EXPORT / IMPORT DATA
+// ============================
+document.getElementById('btn-export-data').onclick = () => {
+  const data = loadData();
+  const exportObj = {
+    user: currentUser,
+    exported: new Date().toISOString(),
+    data: data
+  };
+  const json = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `uren_backup_${currentUser}_${new Date().toLocaleDateString('nl-NL').replace(/\//g, '-')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert('✅ Data geëxporteerd! Je kan het bestand nu naar een ander account importeren.');
+};
+
+document.getElementById('btn-import-data').onclick = () => {
+  document.getElementById('import-file-input').click();
+};
+
+document.getElementById('import-file-input').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const importObj = JSON.parse(ev.target.result);
+      if (!importObj.data || typeof importObj.data !== 'object') {
+        alert('❌ Ongeldig bestand! Dit lijkt geen uren-backup te zijn.');
+        return;
+      }
+      const confirm_import = confirm(`✅ Wil je alle uren van "${importObj.user}" (${importObj.exported.split('T')[0]}) importeren?\n\nDit voegt alle ingevoerde uren toe aan je huidige account.`);
+      if (confirm_import) {
+        const currentData = loadData();
+        const mergedData = { ...currentData, ...importObj.data };
+        saveData(mergedData);
+        render();
+        alert('✅ Data succesvol geïmporteerd! Je uren zijn nu beschikbaar.');
+        document.getElementById('security-modal').classList.remove('open');
+      }
+    } catch (err) {
+      alert('❌ Fout bij lezen bestand: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
 
 // ============================
 // PDF EXPORT
